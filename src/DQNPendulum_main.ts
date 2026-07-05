@@ -45,12 +45,9 @@ let maxScore = 0;
 const scoreHistory: number[] = [];
 const lossHistory: number[] = [];
 const qValueHistory: number[] = [];
-const movingAverageHistory: number[] = [];
 
 let currentLoss = 0;
 let currentQ = 0;
-let currentMovingAvg = 0;
-let maxMovingAvg = 0;
 
 function resetWorld() {
     cart.position.x = 400;
@@ -152,17 +149,8 @@ function step() {
 
         if (isDead) {
             if (score > maxScore) maxScore = score;
-
-            // Calculate Moving Average over the last 100 episodes
             scoreHistory.push(score);
-            if (scoreHistory.length > 100) scoreHistory.shift();
-
-            currentMovingAvg = scoreHistory.reduce((a, b) => a + b, 0) / scoreHistory.length;
-            if (currentMovingAvg > maxMovingAvg) maxMovingAvg = currentMovingAvg;
-
-            // Push to graph history
-            movingAverageHistory.push(currentMovingAvg);
-            if (movingAverageHistory.length > 200) movingAverageHistory.shift();
+            if (scoreHistory.length > 200) scoreHistory.shift();
 
             agent.decayEpsilon();
             resetWorld();
@@ -186,30 +174,24 @@ function step() {
 function drawDiagnostics() {
     // 1. Text Stats
     ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(10, 10, 250, 210);
+    ctx.fillRect(10, 10, 250, 180);
     ctx.fillStyle = 'white';
     ctx.font = '14px monospace';
-    ctx.fillText(`Episode:   ${episode}`, 20, 35);
-    ctx.fillText(`Score:     ${score.toFixed(1)}`, 20, 55);
-    ctx.fillText(`MaxScore:  ${maxScore.toFixed(1)}`, 20, 75);
-
-    ctx.fillStyle = '#4ade80'; // Green for Moving Avg
-    ctx.fillText(`MovAvg:    ${currentMovingAvg.toFixed(1)}`, 20, 95);
-    ctx.fillText(`MaxMovAvg: ${maxMovingAvg.toFixed(1)}`, 20, 115);
-
-    ctx.fillStyle = 'white';
-    ctx.fillText(`Chaos(E):  ${(agent.epsilon * 100).toFixed(1)}%`, 20, 135);
+    ctx.fillText(`Episode:  ${episode}`, 20, 35);
+    ctx.fillText(`Score:    ${score.toFixed(1)}`, 20, 55);
+    ctx.fillText(`MaxScore: ${maxScore.toFixed(1)}`, 20, 75);
+    ctx.fillText(`Chaos(E): ${(agent.epsilon * 100).toFixed(1)}%`, 20, 95);
 
     // Neural Net specific stats
     ctx.fillStyle = '#ef4444'; // Red
-    ctx.fillText(`MSE Loss:  ${currentLoss.toFixed(4)}`, 20, 170);
+    ctx.fillText(`MSE Loss: ${currentLoss.toFixed(4)}`, 20, 130);
     ctx.fillStyle = '#8b5cf6'; // Purple
-    ctx.fillText(`Avg Q-Val: ${currentQ.toFixed(2)}`, 20, 190);
+    ctx.fillText(`Avg Q-Val: ${currentQ.toFixed(2)}`, 20, 150);
 
     // 2. Draw Mini-Charts
     drawChart(lossHistory, canvas.width - 220, 20, 200, 60, 'MSE Loss', '#ef4444');
     drawChart(qValueHistory, canvas.width - 220, 90, 200, 60, 'Avg Max Q', '#8b5cf6');
-    drawChart(movingAverageHistory, canvas.width - 220, 160, 200, 60, 'Moving Avg', '#4ade80');
+    drawChart(scoreHistory, canvas.width - 220, 160, 200, 60, 'Scores', '#4ade80');
 }
 
 function drawChart(data: number[], x: number, y: number, w: number, h: number, label: string, color: string) {
