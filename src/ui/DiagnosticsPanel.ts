@@ -11,10 +11,12 @@ export interface DiagnosticsData {
     currentActionIndex: number;
     thrustFraction: number;
     cartX: number;
+    avgSurvivalTime: number;
+    maxSurvivalTime: number;
 }
 
 /**
- * Draws the on-canvas HUD: the stats box, the loss/Q history charts, the
+ * Draws the on-canvas HUD: the  statsbox, the loss/Q history charts, the
  * per-thrust-level Q-value bars, and the thrust gauge under the cart.
  * Purely a renderer — every number it draws is handed to it via draw().
  */
@@ -62,20 +64,31 @@ export class DiagnosticsPanel {
     private drawStatsPanel(data: DiagnosticsData): void {
         const ctx = this.ctx;
         ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.fillRect(10, 10, 250, 230);
+        ctx.fillRect(10, 10, 250, 270); // <--- Increased height from 230 to 270
+
         ctx.fillStyle = 'white';
         ctx.font = '14px monospace';
         ctx.fillText(`Episode:   ${data.episode}`, 20, 35);
-        ctx.fillText(`Score:     ${data.score.toFixed(1)}`, 20, 55);
-        ctx.fillText(`MovAvg:    ${data.currentMovingAvg.toFixed(1)}`, 20, 75);
-        ctx.fillText(`Loss:      ${data.currentLoss.toFixed(4)}`, 20, 95);
-        ctx.fillText(`Q-Val:     ${data.currentQ.toFixed(2)}`, 20, 115);
+
+        // --- NEW METRICS ---
+        ctx.fillStyle = '#4ade80'; // Neon green so it stands out
+        ctx.fillText(`Avg Alive: ${data.avgSurvivalTime.toFixed(1)}s`, 20, 55);
+        ctx.fillText(`Max Alive: ${data.maxSurvivalTime.toFixed(1)}s`, 20, 75);
+
+        // Push the rest of the text down by 40px
+        ctx.fillStyle = 'white';
+        ctx.fillText(`Score:     ${data.score.toFixed(1)}`, 20, 95);
+        ctx.fillText(`MovAvg:    ${data.currentMovingAvg.toFixed(1)}`, 20, 115);
+        ctx.fillText(`Loss:      ${data.currentLoss.toFixed(4)}`, 20, 135);
+        ctx.fillText(`Q-Val:     ${data.currentQ.toFixed(2)}`, 20, 155);
+
         ctx.fillStyle = '#facc15';
-        ctx.fillText(`Steps/sec: ${data.stepsPerSecond}`, 20, 135);
+        ctx.fillText(`Steps/sec: ${data.stepsPerSecond}`, 20, 175);
         ctx.fillStyle = 'white';
 
-        this.drawChart(data.lossHistory, 20, 150, 220, 40, 'MSE Loss', '#ef4444');
-        this.drawChart(data.qValueHistory, 20, 195, 220, 40, 'Avg Max Q', '#8b5cf6');
+        // Push the charts down by 40px as well
+        this.drawChart(data.lossHistory, 20, 190, 220, 30, 'MSE Loss', '#ef4444');
+        this.drawChart(data.qValueHistory, 20, 230, 220, 30, 'Avg Max Q', '#8b5cf6');
     }
 
     private drawChart(

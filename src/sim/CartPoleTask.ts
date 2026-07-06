@@ -2,7 +2,7 @@ import { Environment } from '../engine/Environment';
 import { PointMass } from '../state/PointMass';
 import { AxisConstraint, BoundaryConstraint, DistanceConstraint } from '../engine/Constraint';
 import { Actuator } from '../engine/Actuator';
-import { clamp } from '../lib/Mathutils';
+import { clamp } from '../lib/mathUtils'; // Assuming you have a mathUtils file for clamp
 
 export interface StepResult {
     nextState: number[];
@@ -89,12 +89,18 @@ export class CartPoleTask {
 
         const nextState = this.senseAndNormalize();
         const rawAngle = nextState[2];
+
         const done =
             Math.abs(rawAngle) > 0.8 ||
             this.cart.position.x < this.leftEdge ||
             this.cart.position.x > this.rightEdge;
 
-        const reward = done ? -10 : 1 - this.energyPenaltyWeight * Math.abs(thrustFraction);
+        // THE FIX: Shaped Reward. 
+        // Math.cos(0) is 1.0 (perfectly upright). 
+        // Math.cos(0.8) is ~0.69 (about to fall over). 
+        // This gives the network a smooth gradient to climb toward perfectly vertical.
+        const uprightBonus = Math.cos(rawAngle);
+        const reward = done ? -10 : uprightBonus - (this.energyPenaltyWeight * Math.abs(thrustFraction));
 
         return { nextState, reward, done };
     }

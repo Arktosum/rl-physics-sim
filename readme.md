@@ -33,8 +33,7 @@ constraints was the main thing worth being careful about.
   UCB-style exploration. States are discretized (cart position, both pole angles,
   both angular velocities) and stored in a `Map<string, number[]>`.
 - **`main.ts`** — the double-pendulum cart-pole training loop.
-- **`singePendulum_main.ts`** — the single-pendulum version, an earlier, simpler
-  version of the same idea.
+
 
 
 ## Running it

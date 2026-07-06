@@ -43,7 +43,16 @@ export class Trainer {
     private readonly agent: DQNAgent;
     private readonly task: CartPoleTask;
     private readonly thrustLevels: number[];
-    private readonly timeBudgetMs: number;
+    public timeBudgetMs: number;
+
+    private totalSteps = 0;
+
+    public stepsThisEpisode = 0;
+    public maxSurvivalTime = 0;
+    public currentAvgSurvivalTime = 0;
+    public readonly survivalTimeHistory: number[] = [];
+    private readonly dt = 0.016; // Your FIXED_DT
+
 
     constructor(agent: DQNAgent, task: CartPoleTask, thrustLevels: number[], timeBudgetMs: number) {
         this.agent = agent;
@@ -60,7 +69,14 @@ export class Trainer {
         const { nextState, reward, done } = this.task.step(thrustFraction);
         this.agent.remember(this.currentState, this.currentActionIndex, reward, nextState, done);
 
-        const metrics = this.agent.replay();
+        this.totalSteps++; // <--- Increment step counter
+        this.stepsThisEpisode++;
+
+        // ONLY TRAIN EVERY 4 STEPS
+        let metrics = null;
+        if (this.totalSteps % 4 === 0) {
+            metrics = this.agent.replay();
+        }
         if (metrics && !Number.isNaN(metrics.loss)) {
             this.currentLoss = this.currentLoss * (1 - EMA_WEIGHT) + metrics.loss * EMA_WEIGHT;
             this.currentQ = this.currentQ * (1 - EMA_WEIGHT) + metrics.qValue * EMA_WEIGHT;
@@ -81,6 +97,17 @@ export class Trainer {
     }
 
     private onEpisodeEnd(): void {
+
+        // --- NEW: Calculate survival time ---
+        const survivalSeconds = this.stepsThisEpisode * this.dt;
+        if (survivalSeconds > this.maxSurvivalTime) this.maxSurvivalTime = survivalSeconds;
+
+        pushCapped(this.survivalTimeHistory, survivalSeconds, 100); // SCORE_WINDOW
+        this.currentAvgSurvivalTime = this.survivalTimeHistory.reduce((a, b) => a + b, 0) / this.survivalTimeHistory.length;
+
+        this.stepsThisEpisode = 0; // Reset for next episode
+        // ------------------------------------
+
         if (this.score > this.maxScore) this.maxScore = this.score;
         pushCapped(this.scoreHistory, this.score, SCORE_WINDOW);
 

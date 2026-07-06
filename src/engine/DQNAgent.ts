@@ -15,7 +15,7 @@ export class DQNAgent {
     public epsilonMin: number = 0.01;
     public gamma: number = 0.99;
     public learningRate: number = 0.0005;
-    public batchSize: number = 64;
+    public batchSize: number = 32;
 
     private numActions: number;
     private trainSteps: number = 0;
@@ -27,11 +27,11 @@ export class DQNAgent {
 
         // Upgraded Architecture: 128 Neurons per layer
         const createArchitecture = () => [
-            new DenseLayer(inputSize, 128),
+            new DenseLayer(inputSize, 32),
             new ReLULayer(),
-            new DenseLayer(128, 128),
+            new DenseLayer(32, 32),
             new ReLULayer(),
-            new DenseLayer(128, numActions)
+            new DenseLayer(32, numActions)
         ];
 
         this.brain = new NeuralNetwork(createArchitecture());
@@ -132,5 +132,49 @@ export class DQNAgent {
         if (this.epsilon > this.epsilonMin) {
             this.epsilon *= this.epsilonDecay;
         }
+    }
+
+
+    /**
+     * Extracts the raw array data from the network layers to save as a JSON string
+     */
+    public toJSON(): string {
+        const layersData = this.brain.layers.map(layer => {
+            const l = layer as any;
+            if (l.weights && l.biases) {
+                // Float32Arrays must be converted to standard arrays for JSON.stringify
+                return {
+                    weights: Array.from(l.weights.data),
+                    biases: Array.from(l.biases.data)
+                };
+            }
+            return null; // ReLULayers have no weights, so they return null
+        });
+
+        return JSON.stringify({
+            layers: layersData,
+            epsilon: this.epsilon
+        });
+    }
+
+    /**
+     * Injects saved data back into the network and synchronizes the target brain
+     */
+    public loadJSON(jsonString: string): void {
+        const parsed = JSON.parse(jsonString);
+
+        for (let i = 0; i < this.brain.layers.length; i++) {
+            const l = this.brain.layers[i] as any;
+            const data = parsed.layers[i];
+
+            if (l.weights && l.biases && data) {
+                for (let j = 0; j < data.weights.length; j++) l.weights.data[j] = data.weights[j];
+                for (let j = 0; j < data.biases.length; j++) l.biases.data[j] = data.biases[j];
+            }
+        }
+
+        if (parsed.epsilon !== undefined) this.epsilon = parsed.epsilon;
+
+        this.syncTargetNetwork(); // Very important to ensure both brains align!
     }
 }

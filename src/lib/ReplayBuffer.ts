@@ -51,4 +51,13 @@ export class ReplayBuffer {
     public isReady(batchSize: number): boolean {
         return this.currentSize >= batchSize;
     }
+    /**
+     * Wipes the memory clean. Crucial for when a new brain is loaded!
+     */
+    public clear(): void {
+        this.pointer = 0;
+        this.currentSize = 0;
+        // We don't need to overwrite the array, just resetting the size and pointer 
+        // means it will safely overwrite old data as new memories come in.
+    }
 }

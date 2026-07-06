@@ -17,10 +17,10 @@ export const ENERGY_PENALTY_WEIGHT = 0.02;
 export const FIXED_DT = 0.016;
 
 /** How many ms of training work the loop does before yielding back to the event loop. */
-export const TRAIN_TIME_BUDGET_MS = 8;
+export const TRAIN_TIME_BUDGET_MS = 50;
 
 export const AGENT_CONFIG = {
     inputSize: 4,
-    epsilonDecay: 0.995,
+    epsilonDecay: 0.997,
     learningRate: 0.001,
 };
