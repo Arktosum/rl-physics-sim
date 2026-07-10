@@ -11,12 +11,8 @@ export class ReLULayer implements Layer {
     private outputScratch: Matrix | null = null;
     private inputGradientScratch: Matrix | null = null;
 
-    /**
-     * FORWARD PASS
-     * Applies the ReLU function: f(x) = max(0, x)
-     */
     forward(input: Matrix): Matrix {
-        // Save the input so we know which neurons "fired" for the backward pass
+        // stashed for backward() to know which neurons fired
         this.input = input;
 
         if (!this.outputScratch || this.outputScratch.rows !== input.rows || this.outputScratch.cols !== input.cols) {
@@ -29,11 +25,7 @@ export class ReLULayer implements Layer {
         return this.outputScratch;
     }
 
-    /**
-     * BACKWARD PASS
-     * Chain Rule: inputGradient = outputGradient * derivative_of_ReLU(input)
-     */
-    backward(outputGradient: Matrix, learningRate: number): Matrix {
+    backward(outputGradient: Matrix, _learningRate: number): Matrix {
         if (!this.input) {
             throw new Error("Must call forward() before backward() can calculate gradients.");
         }
@@ -43,12 +35,10 @@ export class ReLULayer implements Layer {
         }
 
         for (let i = 0; i < outputGradient.data.length; i++) {
-            // The derivative of ReLU is 1 if input > 0, and 0 otherwise.
-            // So we only let the gradient flow backward if the neuron originally fired.
             this.inputGradientScratch.data[i] = this.input.data[i] > 0 ? outputGradient.data[i] : 0;
         }
 
-        // Note: We don't use learningRate here because activation layers have no learnable weights!
+        // learningRate unused: activation layers have no learnable weights
         return this.inputGradientScratch;
     }
 }

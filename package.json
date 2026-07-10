@@ -1,5 +1,5 @@
 {
-  "name": "physics-sim",
+  "name": "rl-physics-sim",
   "private": true,
   "version": "0.0.0",
   "type": "module",

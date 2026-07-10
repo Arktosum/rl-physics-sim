@@ -2,11 +2,11 @@
 
 export interface PPOTransition {
     state: number[];
-    action: number;       // The raw, unclamped action taken
+    action: number;   // raw, unclamped action
     reward: number;
-    value: number;        // The Critic's baseline prediction at this exact moment
-    logProb: number;      // The Actor's mathematical probability of taking this action
-    done: boolean;        // Did the pendulum fall on this step?
+    value: number;     // critic's baseline prediction at this step
+    logProb: number;   // actor's log-prob of this action, under the policy at collection time
+    done: boolean;
 }
 
 export class PPORolloutBuffer {

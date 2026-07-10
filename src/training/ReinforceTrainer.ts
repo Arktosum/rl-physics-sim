@@ -1,6 +1,6 @@
-import { ReinforceAgent } from '../engine/ReinforceAgent';
+import { ReinforceAgent } from '../agents/ReinforceAgent';
 import { EpisodeBuffer } from './EpisodeBuffer';
-import type { Task } from '../sim/Task';
+import type { Task } from '../tasks/Task';
 
 const SCORE_WINDOW = 100;
 const CHART_HISTORY_LIMIT = 200;
@@ -40,9 +40,9 @@ export class ReinforceTrainer {
     public currentMovingAvg = 0;
     public maxMovingAvg = 0;
 
-    public stepsPerSecond = 0;
-    private stepsThisSecond = 0;
-    private lastThroughputCheck = performance.now();
+    // stepsPerSecond is computed by the Worker harness from totalSteps
+    // deltas now, not tracked here.
+    public totalSteps = 0;
 
     private readonly agent: ReinforceAgent;
     private readonly task: Task;
@@ -73,14 +73,14 @@ export class ReinforceTrainer {
         this.currentMean = mean;
         this.currentStd = std;
 
-        // Keep the rolling histogram of actions updated every single step
         pushCapped(this.actionHistory, clampedAction, ACTION_HISTORY_LIMIT);
 
         const { nextState, reward, done } = this.task.step(clampedAction);
         this.buffer.add({ state: this.currentState, rawAction, mean, std, reward });
         this.stepsThisEpisode++;
+        this.totalSteps++;
 
-        // THE SAFETY NET: If the agent survives perfectly, cut it off at MAX_EPISODE_STEPS
+        // truncate if the agent survives indefinitely
         if (done || this.stepsThisEpisode >= MAX_EPISODE_STEPS) {
             this.score += reward;
             this.onEpisodeEnd();
@@ -88,8 +88,6 @@ export class ReinforceTrainer {
             this.score += reward;
             this.currentState = nextState;
         }
-
-        this.stepsThisSecond++;
     }
 
     private onEpisodeEnd(): void {
@@ -110,7 +108,7 @@ export class ReinforceTrainer {
         }
         this.buffer.clear();
 
-        // --- Survival + score bookkeeping, same shape as Trainer.ts ---
+        // survival + score bookkeeping, same shape as Trainer.ts
         const survivalSeconds = this.stepsThisEpisode * this.dt;
         if (survivalSeconds > this.maxSurvivalTime) this.maxSurvivalTime = survivalSeconds;
         pushCapped(this.survivalTimeHistory, survivalSeconds, 100);
@@ -128,19 +126,12 @@ export class ReinforceTrainer {
         this.score = 0;
     }
 
+    // Does one burst of work and returns — the Worker harness owns the
+    // reschedule loop, same contract as PPOTrainer.tick().
     public tick = (): void => {
         const start = performance.now();
         while (performance.now() - start < this.timeBudgetMs) {
             this.doOneStep();
         }
-
-        const now = performance.now();
-        if (now - this.lastThroughputCheck >= 1000) {
-            this.stepsPerSecond = this.stepsThisSecond;
-            this.stepsThisSecond = 0;
-            this.lastThroughputCheck = now;
-        }
-
-        setTimeout(this.tick, 0);
     };
 }

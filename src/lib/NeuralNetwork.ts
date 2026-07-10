@@ -29,11 +29,6 @@ export class NeuralNetwork {
         return this.targetScratch;
     }
 
-    /**
-     * FORWARD PASS
-     * Takes an array of raw numbers (e.g. physics state), passes it through every layer,
-     * and returns the final prediction as an array of numbers (e.g. Q-Values).
-     */
     public predict(inputArray: number[]): number[] {
         let currentData: Matrix = this.getInputScratch(inputArray.length).setFromArray(inputArray);
 
@@ -44,19 +39,13 @@ export class NeuralNetwork {
         return Array.from(currentData.data);
     }
 
-    /**
-     * BACKWARD PASS (The Learning Step)
-     * Returns the Mean Squared Error (Loss) for diagnostic tracking.
-     */
     public train(inputArray: number[], targetArray: number[], learningRate: number): number {
-        // --- STEP 1: Forward Pass ---
         let currentData: Matrix = this.getInputScratch(inputArray.length).setFromArray(inputArray);
 
         for (const layer of this.layers) {
             currentData = layer.forward(currentData);
         }
 
-        // --- STEP 2: Calculate the Initial Error Gradient & Loss ---
         const gradientBuffer = this.getTargetScratch(targetArray.length);
         let gradient: Matrix = gradientBuffer;
         let totalError = 0;
@@ -64,17 +53,15 @@ export class NeuralNetwork {
         for (let i = 0; i < targetArray.length; i++) {
             const error = currentData.data[i] - targetArray[i];
 
-            // THE FIX: Gradient Clipping (Huber Loss approximation)
-            // If the agent dies (-10 penalty), the error is massive. We clip the
-            // gradient to [-1, 1] so it takes a controlled step instead of exploding.
+            // clip to [-1, 1] (Huber-loss approximation) so a large penalty (e.g. -10 on death)
+            // doesn't blow up the gradient into an unstable step
             gradientBuffer.data[i] = Math.max(-1, Math.min(1, error));
 
-            totalError += error * error; // We keep true MSE for the UI chart
+            totalError += error * error; // true MSE, for the UI chart
         }
 
         const mseLoss = totalError / targetArray.length;
 
-        // --- STEP 3: Backward Pass ---
         for (let i = this.layers.length - 1; i >= 0; i--) {
             gradient = this.layers[i].backward(gradient, learningRate);
         }
@@ -83,8 +70,6 @@ export class NeuralNetwork {
     }
 
     /**
-     * BACKWARD PASS WITH A CUSTOM GRADIENT (for Actor networks)
-     *
      * DQN's Critic/baseline networks learn by regression toward a target array,
      * so `train()`'s built-in "prediction - target" MSE gradient is exactly right
      * for them. An Actor in DDPG/REINFORCE/PPO does NOT learn by regression —
@@ -94,7 +79,7 @@ export class NeuralNetwork {
      * step entirely, and backprops whatever gradient the caller computed.
      */
     public trainWithGradient(inputArray: number[], outputGradient: number[], learningRate: number): void {
-        // --- STEP 1: Forward Pass (must run first so each layer caches its input) ---
+        // forward pass must run first so each layer caches its input for backward()
         let currentData: Matrix = this.getInputScratch(inputArray.length).setFromArray(inputArray);
 
         for (const layer of this.layers) {

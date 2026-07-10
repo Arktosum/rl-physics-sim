@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>REINFORCE — rl-physics-sim</title>
+    <link rel="stylesheet" href="/src/styles/showcase.css" />
+  </head>
+  <body>
+    <div class="top-nav"><a href="/index.html">&larr; rl-physics-sim</a> &middot; <a href="/docs/journey/index.html">Journey</a></div>
+    <div class="journey-container">
+<p># REINFORCE Scene — Planned UI & Diagnostics Overhaul</p>
+<p>Status: <strong>planning / not yet implemented.</strong> This is the agreed shape of the next edit pass on <code>ReinforcePendulum_main.ts</code> and <code>ReinforceTrainer.ts</code>, written down before touching code so we can sign off on the plan first.</p>
+<hr/>
+<p>## 1. Clean canvas, DOM sidebar for everything else</p>
+<p><strong>Problem today:</strong> <code>drawDiagnostics()</code> draws text/charts straight onto the same <code>&lt;canvas&gt;</code> the physics renders to, via <code>ctx.fillText</code>/<code>ctx.fillRect</code> layered on top of <code>renderer.render(task.env)</code>.</p>
+<p><strong>Plan:</strong> Canvas becomes environment-only. <code>renderer.render(task.env)</code> is the only thing that touches it. All stats, charts, and controls move into a DOM sidebar — extending the existing <code>uiContainer</code> div (currently just holds the Speed/Save/Load controls) rather than inventing a second UI system.</p>
+<ul>
+<li>Numeric readouts → plain DOM elements (<code>&lt;div&gt;</code>/<code>&lt;span&gt;</code>), updated per frame or per episode as appropriate — no need to route them through canvas drawing at all.</li>
+<li>Charts → small dedicated <code>&lt;canvas&gt;</code> elements living in the sidebar, one per chart, each with their own draw call. Keeps the main sim canvas free of any drawing code that isn't <code>CanvasRenderer</code>.</li>
+</ul>
+<p>## 2. Fast-forward stays mechanically the same, one caveat</p>
+<p><code>trainer.tick()</code>'s loop-until-<code>timeBudgetMs</code>-then-<code>setTimeout(0)</code> shape is unchanged and still the thing to crank up for speed.</p>
+<p><strong>Caveat to keep in mind, not something to fix:</strong> DQN's training cost is smooth (fixed batch of 32 every 4 steps). REINFORCE's is lumpy — <code>learn()</code> only fires once per episode and costs proportional to that episode's length, all synchronously inside one <code>doOneStep()</code> call. Longer episodes can make a single training burst overshoot <code>timeBudgetMs</code> more than DQN ever did. Just a different rhythm to expect, not a bug.</p>
+<p>## 3. Render-pause toggle for fast-forwarding</p>
+<p>New sidebar button: <strong>"Pause Rendering"</strong> (or similar).</p>
+<ul>
+<li>Toggling it OFF skips <code>renderer.render()</code> and all sidebar redraw work inside <code>renderLoop()</code>, freeing the main thread almost entirely for <code>trainer.tick()</code>'s training loop.</li>
+<li><code>requestAnimationFrame</code> itself keeps running at a trickle underneath (just polling the toggle state, maybe cheaply updating an episode counter) rather than being cancelled outright — stopping <code>rAF</code> completely would need a separate mechanism to know when to resume drawing later.</li>
+<li><code>trainer.tick()</code> is untouched either way — it was already fully decoupled from rendering, so this toggle only affects the render side.</li>
+</ul>
+<p>## 4. Diagnostics — full rethink, not a port of the DQN panel</p>
+<p>Starting from scratch rather than reusing the old panel's metric list, since several of those (epsilon, per-action Q-values) have no REINFORCE equivalent.</p>
+<p>### Outcome metrics (kept, same role as before)</p>
+<ul>
+<li><strong>Score per episode + moving average</strong> — ground truth of "is it improving."</li>
+<li><strong>Survival time</strong> — task-specific proxy, less sensitive to reward-shaping quirks than raw score.</li>
+</ul>
+<p>### REINFORCE-specific health metrics (new)</p>
+<ul>
+<li><strong>Policy std / entropy over time.</strong> For a Gaussian: <code>entropy = 0.5 * log(2πe · std²)</code>. This is <em>the</em> signal DQN never had — exploration is now baked into the network's own output rather than an external epsilon schedule. Collapsing to ~0 early means the policy stopped exploring before it was actually good; staying high forever means it's never converging. Gets its own chart.</li>
+<li><strong>Critic (baseline) loss.</strong> Same idea as DQN's loss chart, but now it's regression against real returns <code>G_t</code> instead of Q-values. Should trend down smoothly if the baseline is learning.</li>
+<li><strong>Average |Advantage| magnitude.</strong> Should shrink as the Critic gets better at predicting returns. Large or noisy late in training = stability warning.</li>
+<li><strong>Gradient clip rate.</strong> % of Actor updates in the last episode where <code>clipGrad()</code> in <code>ReinforceAgent.learn()</code> actually clamped something. Direct visibility into whether the exploding-gradient issue we already fixed once is creeping back, far more actionable than the old placeholder "actor loss" metric (sum of absolute gradients — dropped entirely, wasn't principled).</li>
+</ul>
+<p>### Raw action distribution (new — the fun one) A rolling histogram of the last N <em>clamped</em> actions actually sent to the environment (N ~100–200, ring buffer).</p>
+<ul>
+<li>Bucket <code>[-1, 1]</code> into a fixed number of bins (e.g. 21 bins, width 0.1).</li>
+<li>Redraw as a small bar chart in the sidebar, rebuilt each episode (or every K steps if we want it live mid-episode).</li>
+<li>Purpose: this is the most direct possible view into *what the policy is actually doing*, independent of what the Critic thinks or what the loss numbers say. A healthy learning policy should visibly narrow and shift this distribution over training; a stuck one will show it planted on a single bin (over-exploited) or flat across all bins (never converging / effectively still random).</li>
+</ul>
+<p>### Dropped from the old DQN panel entirely</p>
+<ul>
+<li>Epsilon / "Chaos %" — doesn't exist here, exploration is continuous std, not an external schedule.</li>
+<li>Per-action Q-value bar chart — no discrete action set anymore to bar-chart.</li>
+<li>"MSE Loss" framed as a single DQN-style number — replaced by the Critic-loss / Advantage-magnitude pair above, which map onto what's actually being optimized here.</li>
+</ul>
+<hr/>
+<p># REINFORCE Architecture — Diagnostic Report</p>
+<p><strong>Conclusion:</strong> Vanilla REINFORCE is mathematically insufficient for the Double Pendulum environment due to inherent instability. Transition to PPO required.</p>
+<hr/>
+<p>## 1. Observed Symptoms (The Collapse)</p>
+<p>During the live training of the <code>ReinforceAgent</code> on the <code>DoublePendulumTask</code>, the agent consistently exhibited a rapid and fatal mathematical collapse. The newly implemented DOM UI dashboard successfully captured the exact mechanics of this failure in real-time.</p>
+<p>### Symptom A: Action Distribution "Wall" Slam</p>
+<ul>
+<li><strong>Observation:</strong> The action histogram began as a healthy, spread-out Bell curve. After a random fluctuation where the agent survived slightly longer, the histogram violently collapsed.</li>
+<li><strong>Result:</strong> All actions became permanently glued to either <code>-1.0</code> or <code>+1.0</code>. The agent effectively held a single direction key down forever.</li>
+</ul>
+<p>### Symptom B: The -1.581 Entropy Floor</p>
+<ul>
+<li><strong>Observation:</strong> The Policy Entropy metric plummeted and locked exactly at <code>-1.581</code>.</li>
+<li><strong>Mathematical Proof:</strong> In our code, we hardcoded <code>LOG_STD_MIN = -3.0</code> to prevent division by zero. This clamps the standard deviation ($\sigma$) at <code>Math.exp(-3.0) ≈ 0.0497</code>.</li>
+<li><strong>Calculation:</strong> The entropy of a continuous Gaussian is <code>0.5 * ln(2 * π * e * σ²)</code>. Plugging in our floor: <code>0.5 * ln(2 * π * e * (0.0497)²) = -1.581</code>.</li>
+<li><strong>Meaning:</strong> The network became so violently overconfident in a single action that it tried to shrink its uncertainty ($\sigma$) to absolute zero, hitting our mathematical safety net and getting permanently stuck.</li>
+</ul>
+<p>### Symptom C: Score Flatline</p>
+<ul>
+<li><strong>Observation:</strong> The moving average score flatlined near <code>0</code>. </li>
+<li><strong>Meaning:</strong> The agent was surviving for exactly ~20 frames (earning +20 points) before immediately failing the boundary/angle constraints (taking the -20 penalty). $20 - 20 = 0$.</li>
+</ul>
+<hr/>
+<p>## 2. Root Cause Analysis: Catastrophic Overconfidence</p>
+<p>The collapse is a textbook example of the fundamental flaw in Vanilla Policy Gradients when applied to chaotic, continuous control environments.</p>
+<ol>
+<li><strong>The Spark:</strong> By pure luck, the Actor executes a random twitch that keeps the pendulum alive for a few extra milliseconds.</li>
+<li><strong>The Critique:</strong> The Critic compares this survival to its baseline and issues a massive positive <strong>Advantage</strong> score.</li>
+<li><strong>The Exploding Gradient:</strong> Because REINFORCE lacks a "speed limit," the Actor receives this massive Advantage and immediately alters its entire neural weight structure to favor that single twitch.</li>
+<li><strong>The Coma:</strong> The Actor pushes its Mean ($\mu$) to infinity (which gets clamped to <code>1</code> or <code>-1</code> by the <code>tanh</code> activation) and its Standard Deviation ($\sigma$) to zero. It becomes completely rigid, deaf, and blind to new data.</li>
+</ol>
+<hr/>
+<p>## 3. The Resolution: Transition to PPO</p>
+<p>Tuning hyperparameters (like lowering the Actor's learning rate to <code>0.00005</code>) merely delays this inevitable collapse. The Double Pendulum is too chaotic; an overconfident "jerk" will eventually happen.</p>
+<p>To solve this, the architecture must be upgraded to <strong>Proximal Policy Optimization (PPO)</strong>.</p>
+<p>### PPO Implementation Requirements:</p>
+<ol>
+<li><strong>The Trust Region (Clipping):</strong> We must abandon the raw REINFORCE loss function. The new Actor loss function must calculate the probability ratio between the <em>old</em> policy and the <em>new</em> policy.</li>
+<li><strong>The 20% Speed Limit:</strong> We must apply PPO's clipping mechanism (<code>clip(ratio, 0.8, 1.2)</code>) to ensure the Actor can never change its action probability by more than 20% in a single update, regardless of how large the Advantage score is.</li>
+<li><strong>On-Policy Batches:</strong> The training loop will shift from "learn at the end of every episode" to "play for N steps, learn on that exact batch, and immediately delete it."</li>
+</ol>
+<p>By enforcing monotonic, constrained improvement, PPO will prevent the entropy from collapsing and allow the agent to safely discover the microscopic adjustments required to balance the double pendulum.</p>
+
+    <div class="journey-nav">
+      <span><a href="/docs/journey/01-q-learning.html">&larr; Q-Learning</a></span>
+      <span><a href="/docs/journey/03-ppo.html">PPO &rarr;</a></span>
+    </div>
+    </div>
+  </body>
+</html>

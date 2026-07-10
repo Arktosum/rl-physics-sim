@@ -3,27 +3,89 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Physics Engine</title>
-    <style>
-      body {
-        margin: 0;
-        height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: #1e1e2f; /* Deep slate workspace */
-      }
-      canvas {
-        display: block;
-        background-color: #0b0b13; /* Near-black simulation screen */
-        border: 2px solid #3b3b52; /* Subtle border */
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8); /* Drop shadow to make it pop */
-        border-radius: 8px; /* Smooth corners */
-      }
-    </style>
+    <title>rl-physics-sim</title>
+    <link rel="stylesheet" href="/src/styles/showcase.css" />
   </head>
   <body>
-    <canvas id="sim-canvas"></canvas>
-    <script type="module" src="/src/main.ts"></script>
+    <div id="showcase-container">
+      <p class="showcase-eyebrow">rl-physics-sim</p>
+      <h1>Teaching agents to balance a pendulum, four different ways</h1>
+      <p class="lede">
+        Every demo below trains live in your browser, on a dedicated Worker
+        thread — nothing is pre-recorded. Four reinforcement-learning
+        approaches were tried in order, each one picking up where the last
+        hit a real ceiling: tabular Q-learning &rarr; DQN &rarr; REINFORCE
+        &rarr; PPO.
+      </p>
+
+      <div class="engine-note">
+        <strong>The physics engine</strong> is built from scratch — no
+        physics library. Points integrate with <strong>Verlet
+        integration</strong> (position history instead of explicit
+        velocity), and rods between them are solved as distance constraints
+        via <strong>Position-Based Dynamics</strong>, the same family of
+        technique used in cloth and rope simulations. Nothing here comes
+        from a physics engine or an RL library — both halves are hand-built.
+      </div>
+
+      <div class="showcase-section-title">Q-Learning</div>
+      <p class="showcase-section-desc">Tabular — a lookup table over discretized states, hits a real structural ceiling.</p>
+      <div class="showcase-grid">
+        <a class="showcase-card" href="/q-learning-single.html">
+          <h3>Single Pendulum</h3>
+          <p>Small enough state space for a table to actually work well.</p>
+        </a>
+        <a class="showcase-card" href="/q-learning-double.html">
+          <h3>Double Pendulum</h3>
+          <p>Where discretization's bins^dimensions blowup starts to bite.</p>
+        </a>
+      </div>
+
+      <div class="showcase-section-title">DQN</div>
+      <p class="showcase-section-desc">A neural network replaces the table — continuous state, no discretization.</p>
+      <div class="showcase-grid">
+        <a class="showcase-card" href="/dqn-single.html">
+          <h3>Single Pendulum</h3>
+          <p>Replay buffer + target network, discrete action set.</p>
+        </a>
+        <a class="showcase-card" href="/dqn-double.html">
+          <h3>Double Pendulum</h3>
+          <p>Same agent, a genuinely harder balancing problem.</p>
+        </a>
+      </div>
+
+      <div class="showcase-section-title">REINFORCE</div>
+      <p class="showcase-section-desc">Continuous control via a Gaussian policy — and a real instability.</p>
+      <div class="showcase-grid">
+        <a class="showcase-card" href="/reinforce-single.html">
+          <h3>Single Pendulum</h3>
+          <p>Vanilla policy gradients, continuous action via a Gaussian policy.</p>
+        </a>
+        <a class="showcase-card" href="/reinforce-double.html">
+          <h3>Double Pendulum</h3>
+          <p>Where one lucky episode can collapse the policy permanently.</p>
+        </a>
+      </div>
+
+      <div class="showcase-section-title">PPO</div>
+      <p class="showcase-section-desc">The fix for REINFORCE's instability, and the deepest dive.</p>
+      <div class="showcase-grid">
+        <a class="showcase-card" href="/ppo-single.html">
+          <h3>Single Pendulum</h3>
+          <p>Trust-region clipping stabilizes what REINFORCE couldn't.</p>
+        </a>
+        <a class="showcase-card" href="/ppo-double.html">
+          <h3>Double Pendulum</h3>
+          <p>Watch it live, or flip on Live Demo for the noise-free policy.</p>
+        </a>
+      </div>
+
+      <div class="showcase-section-title">The Journey</div>
+      <p class="showcase-section-desc">
+        Every wrong turn, real bug, and benchmark from actually building
+        this, written up in order:
+        <a href="/docs/journey/index.html">docs/journey</a>.
+      </p>
+    </div>
   </body>
 </html>

@@ -1,4 +1,4 @@
-import type { Transition } from "../engine/ReinforceAgent";
+import type { Transition } from "../agents/ReinforceAgent";
 
 /**
  * REINFORCE's memory, structurally opposite to ReplayBuffer:

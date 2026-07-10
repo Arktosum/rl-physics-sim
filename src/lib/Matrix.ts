@@ -11,26 +11,16 @@ export class Matrix {
         this.data = new Float32Array(rows * cols);
     }
 
-    // ==========================================
-    // INITIALIZATION & FACTORY METHODS
-    // ==========================================
-
-    /**
-     * Creates a Matrix filled with 0s.
-     */
     static zeros(rows: number, cols: number): Matrix {
         return new Matrix(rows, cols);
     }
 
-    /**
-     * Creates a Matrix filled with random numbers drawn from a 
-     * Standard Normal Distribution (mean 0, variance 1) using the Box-Muller transform.
-     */
+    // Box-Muller transform for standard-normal samples
     static randn(rows: number, cols: number): Matrix {
         const result = new Matrix(rows, cols);
         for (let i = 0; i < result.data.length; i++) {
             let u = 0, v = 0;
-            while (u === 0) u = Math.random(); // Converting [0,1) to (0,1)
+            while (u === 0) u = Math.random(); // exclude 0 to avoid log(0)
             while (v === 0) v = Math.random();
             const num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
             result.data[i] = num;
@@ -38,9 +28,6 @@ export class Matrix {
         return result;
     }
 
-    /**
-     * Converts a standard 2D JavaScript array into our highly-optimized Matrix.
-     */
     static fromArray(arr: number[][]): Matrix {
         const rows = arr.length;
         const cols = arr[0].length;
@@ -63,9 +50,6 @@ export class Matrix {
         return this;
     }
 
-    /**
-     * Converts the Matrix back to a 2D array (useful for debugging or interfacing).
-     */
     public toArray(): number[][] {
         const arr: number[][] = [];
         for (let i = 0; i < this.rows; i++) {
@@ -78,14 +62,6 @@ export class Matrix {
         return arr;
     }
 
-    // ==========================================
-    // MATRIX OPERATIONS (Returns a new Matrix)
-    // ==========================================
-
-    /**
-     * Standard Matrix Multiplication (Dot Product).
-     * O(n^3) complexity, optimized for 1D array indexing.
-     */
     static dot(a: Matrix, b: Matrix): Matrix {
         if (a.cols !== b.rows) {
             throw new Error(`Matrix mismatch: Columns of A (${a.cols}) must match Rows of B (${b.rows})`);
@@ -127,9 +103,6 @@ export class Matrix {
         return out;
     }
 
-    /**
-     * Flips rows and columns. Critical for calculating gradients during Backpropagation.
-     */
     public transpose(): Matrix {
         return this.transposeInto(new Matrix(this.cols, this.rows));
     }
@@ -147,17 +120,12 @@ export class Matrix {
             const rowOffset = i * cols;
             let outIdx = i;
             for (let j = 0; j < cols; j++) {
-                // Read from [i, j], write to [j, i]
                 out.data[outIdx] = this.data[rowOffset + j];
                 outIdx += rows;
             }
         }
         return out;
     }
-
-    // ==========================================
-    // ELEMENT-WISE OPERATIONS (In-Place for speed)
-    // ==========================================
 
     public add(n: Matrix | number): this {
         if (n instanceof Matrix) {
@@ -166,7 +134,7 @@ export class Matrix {
         } else {
             for (let i = 0; i < this.data.length; i++) this.data[i] += n;
         }
-        return this; // Return 'this' to allow method chaining (e.g., m.add(1).mult(2))
+        return this;
     }
 
     public sub(n: Matrix | number): this {
@@ -218,24 +186,15 @@ export class Matrix {
 
     public mult(n: Matrix | number): this {
         if (n instanceof Matrix) {
-            // Hadamard Product (Element-wise multiplication)
+            // Hadamard (element-wise) product
             if (this.rows !== n.rows || this.cols !== n.cols) throw new Error("Matrix dimensions must match for Hadamard product");
             for (let i = 0; i < this.data.length; i++) this.data[i] *= n.data[i];
         } else {
-            // Scalar multiplication
             for (let i = 0; i < this.data.length; i++) this.data[i] *= n;
         }
         return this;
     }
 
-    // ==========================================
-    // FUNCTIONAL OPERATIONS
-    // ==========================================
-
-    /**
-     * Applies a function to every element in the matrix in-place.
-     * Perfect for Activation Functions (ReLU, Sigmoid).
-     */
     public map(fn: (val: number, index: number) => number): this {
         for (let i = 0; i < this.data.length; i++) {
             this.data[i] = fn(this.data[i], i);

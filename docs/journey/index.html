@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Journey — rl-physics-sim</title>
+    <link rel="stylesheet" href="/src/styles/showcase.css" />
+  </head>
+  <body>
+    <div class="top-nav"><a href="/index.html">&larr; rl-physics-sim</a></div>
+    <div class="journey-container">
+      <p class="showcase-eyebrow">The Journey</p>
+      <h1>Four reinforcement-learning approaches, tried in order</h1>
+      <p>
+        Each one picked up where the last hit a real ceiling. These are the
+        write-ups from actually building them, in the order it happened —
+        including the wrong turns — rather than cleaned up after the fact
+        into "and then we did the right thing."
+      </p>
+
+      <ul class="journey-index-list">
+        <li>
+          <a href="/docs/journey/01-q-learning.html">1. Q-Learning</a>
+          <p>
+            Tabular Q-learning on the double pendulum. Gets surprisingly far
+            with UCB exploration, symmetry augmentation, and reward shaping,
+            but hits a structural wall: the bins^dimensions blowup of
+            discretizing a continuous state space.
+          </p>
+        </li>
+        <li>
+          <a href="/docs/journey/02-reinforce.html">2. REINFORCE</a>
+          <p>
+            Swaps the table for a neural network — no more discretization —
+            but vanilla policy gradients turn out to be mathematically
+            unstable on a chaotic system like this: a single lucky episode
+            can send the policy into total, permanent overconfidence.
+          </p>
+        </li>
+        <li>
+          <a href="/docs/journey/03-ppo.html">3. PPO</a>
+          <p>
+            The fix for REINFORCE's instability (a trust-region / clipped
+            objective), then a much longer second story once PPO was
+            training correctly: chasing down why the browser stuttered, and
+            a real learning-rate regression that mini-batching quietly
+            introduced.
+          </p>
+        </li>
+      </ul>
+
+      <div class="journey-nav">
+        <span><a href="/index.html">&larr; rl-physics-sim</a></span>
+        <span><a href="/docs/journey/01-q-learning.html">Start with Q-Learning &rarr;</a></span>
+      </div>
+    </div>
+  </body>
+</html>
